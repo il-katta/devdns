@@ -1,0 +1,6 @@
+CMakeCache.txt
+devdnsbackend/build
+devdnsbackend/build/**
+devdnsbackend/cmake-build*
+.vscode
+.idea

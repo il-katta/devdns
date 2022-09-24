@@ -1,0 +1,6 @@
+devdnsbackend/build
+devdnsbackend/build/**
+devdnsbackend/_build/**
+devdnsbackend/cmake-build*
+.vscode
+.idea
