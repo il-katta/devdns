@@ -1,5 +1,7 @@
 #include <iostream>
 #include <utility>
+#include <regex>
+
 #include "uacme.c"
 
 class DevDsnEngine {
@@ -14,6 +16,7 @@ public:
         std::string st_regex = R"(((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61})";
         std::string s_regex1 = "^(" + st_regex + "\\.)?(" + ip_regex + ")(\\." + st_regex + "){2,3}\\.$";
         domain_regex1 = std::regex(s_regex1, std::regex_constants::ECMAScript | std::regex_constants::icase);
+
     }
 
     bool check_request(const std::string &s_name, std::string &ipaddress) {

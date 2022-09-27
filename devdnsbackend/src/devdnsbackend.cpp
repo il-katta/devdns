@@ -16,7 +16,7 @@
 static const char *kBackendId = "[DEVDNSBackend]";
 
 void log(Logger::Urgency level, const std::string &message) {
-    //g_log << level << kBackendId << " " << message << std::endl;
+    g_log << level << kBackendId << " " << message << std::endl;
 }
 
 DevDnsBackend::DevDnsBackend(const string &suffix) {
@@ -33,7 +33,7 @@ DevDnsBackend::DevDnsBackend(const string &suffix) {
 
 void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
     auto s_name = qname.toString();
-    //log(Logger::Info, "lookup " + qname.toString());
+    log(Logger::Info, "lookup " + qname.toString());
     if (!engine.check_request(s_name, q_content)) {
         d_discard = true;
     } else {
@@ -44,7 +44,7 @@ void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId,
 }
 
 bool DevDnsBackend::get(DNSResourceRecord &r) {
-    //log(Logger::Info, fmt::format("get {} {}", d_qtype.toString(), d_qname.toString()));
+    log(Logger::Info, fmt::format("get {} {}", d_qtype.toString(), d_qname.toString()));
     if (d_discard) return false;
     d_discard = true; // only one response per record
     if (d_qname.empty()) {
@@ -75,7 +75,7 @@ bool DevDnsBackend::get(DNSResourceRecord &r) {
             log(Logger::Info, "get invalid type");
             return false;
     }
-    //log(Logger::Info, fmt::format("get return '{}'", r.content));
+    log(Logger::Info, fmt::format("get return '{}'", r.content));
     return true;
 }
 

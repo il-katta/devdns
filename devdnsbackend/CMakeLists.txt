@@ -19,11 +19,15 @@ target_include_directories(${LIB_NAME} PRIVATE src)
 find_library(FMT_LIBRARIES fmt REQUIRED)
 target_link_libraries(${LIB_NAME} ${FMT_LIBRARIES})
 
+# uacme
+find_library(UACME_LIBRARIES uacme REQUIRED)
+target_link_libraries(${LIB_NAME} ${UACME_LIBRARIES})
+
 # pdns headers
 FetchContent_Declare(
-        pdns
-        GIT_REPOSITORY https://github.com/PowerDNS/pdns.git
-        GIT_TAG ${PDNS_TAG}
+    pdns
+    GIT_REPOSITORY https://github.com/PowerDNS/pdns.git
+    GIT_TAG ${PDNS_TAG}
 )
 FetchContent_MakeAvailable(pdns)
 FetchContent_GetProperties(pdns)
@@ -62,3 +66,12 @@ target_include_directories(${LIB_NAME} PRIVATE ${uacme_SOURCE_DIR})
 install(TARGETS ${LIB_NAME} DESTINATION lib/pdns)
 
 
+project(tests)
+enable_testing()
+add_executable(tests src/tests.cpp)
+target_include_directories(tests PRIVATE ${pdns_SOURCE_DIR})
+target_link_libraries(tests ${UACME_LIBRARIES})
+target_link_libraries(tests ${FMT_LIBRARIES})
+target_include_directories(tests PRIVATE include)
+target_include_directories(tests PRIVATE src)
+add_test(NAME tests COMMAND tests)

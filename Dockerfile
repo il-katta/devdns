@@ -1,16 +1,17 @@
 FROM debian:latest as builder
 
+ADD devdnsbackend /usr/local/devdnsbackend
 
 RUN set -x && \
     apt-get -qq update && \
-    apt-get install -y g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
+    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
         autoconf automake ragel bison flex \
         git curl wget cmake \
-        libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev && \
-    apt-get clean all -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN set -x && \
+        libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
+        libgnutls28-dev && \
+    apt-get clean all -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     # powerdns build & install
-    git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns  && \
+    git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns && \
     cd /usr/local/pdns && \
     autoreconf -vi && \
     ./configure \
@@ -30,10 +31,15 @@ RUN set -x && \
     --enable-unit-tests \
     --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install
-
-ADD devdnsbackend /usr/local/devdnsbackend
-RUN set -x && \
+    make DESTDIR=/output/ install  && \
+    # uacme
+    git clone https://git.loopback.it/andrea/uacme.git --branch lib /usr/local/uacme && \
+    cd /usr/local/uacme && \
+    autoreconf -vi && \
+    ./configure --prefix=/usr --disable-maintainer-mode --disable-docs && \
+    make -j$(nproc) && \
+    make DESTDIR=/output/ install && \
+    make install  && \
     # devdnsbackend build & install
     cd /usr/local/devdnsbackend && \
     mkdir -p build && \
@@ -41,7 +47,7 @@ RUN set -x && \
     cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .. && \
     make devdnsbackend && \
     make DESTDIR=/output/ install && \
-    apt-get -y remove g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
+    apt-get -qq -y remove g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
         autoconf automake ragel bison flex git curl wget cmake libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev && \
     apt-get clean all -y && apt-get autoclean -y
 
