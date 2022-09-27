@@ -16,47 +16,43 @@
 static const char *kBackendId = "[DEVDNSBackend]";
 
 void log(Logger::Urgency level, const std::string &message) {
-    g_log << level << kBackendId << " " << message << std::endl;
+    //g_log << level << kBackendId << " " << message << std::endl;
 }
 
 DevDnsBackend::DevDnsBackend(const string &suffix) {
     log(Logger::Info, "DevDnsBackend " + suffix);
     signal(SIGCHLD, SIG_IGN);
     setArgPrefix("devdns" + suffix);
+    soa_record = getArg("soa-record");
+    base_domain = getArg("domain");
+    engine = DevDsnEngine(base_domain);
+    log(Logger::Info, fmt::format("soa record '{}'", soa_record));
     d_discard = false;
-    std::string ip_regex = R"(((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4})";
-    std::string st_regex = R"(((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61})";
-    std::string s_regex1 = "^(" + st_regex + "\\.)?(" + ip_regex + ")(\\." + st_regex + "){2,3}\\.$";
-    domain_regex1 = std::regex(s_regex1, std::regex_constants::ECMAScript | std::regex_constants::icase);
 }
 
 
 void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
     auto s_name = qname.toString();
-    log(Logger::Info, "lookup " + qname.toString());
-    std::smatch matches;
-    if (!std::regex_search(s_name, matches, domain_regex1)) {
-        log(Logger::Info, fmt::format("lookup - domain '{}' ignored", s_name));
+    //log(Logger::Info, "lookup " + qname.toString());
+    if (!engine.check_request(s_name, q_content)) {
         d_discard = true;
-        return;
+    } else {
+        d_discard = false;
+        d_qname = qname;
+        d_qtype = qtype;
     }
-    log(Logger::Info, fmt::format("lookup - match {}", matches[4].str()));
-    d_qname = qname;
-    q_content = matches[4].str();
-    d_qtype = qtype;
-    d_discard = false;
 }
 
 bool DevDnsBackend::get(DNSResourceRecord &r) {
-    log(Logger::Info, "get [ type " + d_qtype.toString() + " ]");
+    //log(Logger::Info, fmt::format("get {} {}", d_qtype.toString(), d_qname.toString()));
     if (d_discard) return false;
-    d_discard = true;
+    d_discard = true; // only one response per record
     if (d_qname.empty()) {
-        log(Logger::Info, "get [ NO NAME ]");
+        log(Logger::Info, "get [NO NAME]");
         return false;
     }
     if (q_content.empty()) {
-        log(Logger::Info, "get [ NO CONTENT ]");
+        log(Logger::Info, "get [NO CONTENT]");
         return false;
     }
     r.qname = d_qname;
@@ -66,7 +62,7 @@ bool DevDnsBackend::get(DNSResourceRecord &r) {
     r.domain_id = 60;
     switch (d_qtype.getCode()) {
         case QType::SOA:
-            r.content = "a.misconfigured.dns.server.invalid hostmaster.example.com 0 10800 3600 604800 3600";
+            r.content = soa_record;
             break;
         case QType::A:
             r.content = q_content;
@@ -79,7 +75,7 @@ bool DevDnsBackend::get(DNSResourceRecord &r) {
             log(Logger::Info, "get invalid type");
             return false;
     }
-    log(Logger::Info, fmt::format("get return '{}'", r.content));
+    //log(Logger::Info, fmt::format("get return '{}'", r.content));
     return true;
 }
 
@@ -111,7 +107,6 @@ DevDnsBackend::~DevDnsBackend() {
 }
 
 
-
 //
 // Magic class that is activated when the dynamic library is loaded
 //
@@ -119,15 +114,18 @@ DevDnsBackend::~DevDnsBackend() {
 class DevdnsFactory : public BackendFactory {
 public:
     DevdnsFactory() : BackendFactory("devdns") {
-        log(Logger::Info, "hello devdns");
+        log(Logger::Info, "DevdnsFactory init");
     }
 
     void declareArguments(const string &suffix = "") override {
         log(Logger::Info, "declareArguments " + suffix);
+        declare(suffix, "soa-record", "soa record",
+                "a.misconfigured.dns.server.invalid hostmaster.example.com 0 10800 3600 604800 3600");
+        declare(suffix, "domain", "base domain ( Example: dev.example.com )", "");
     }
 
-    DNSBackend *make(const string &suffix = "") override {
-        log(Logger::Info, "make " + suffix);
+    DNSBackend *make(const string &suffix) override {
+        log(Logger::Info, "DevdnsFactory make " + suffix);
         return new DevDnsBackend(suffix);
     }
 };

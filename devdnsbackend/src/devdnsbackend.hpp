@@ -10,18 +10,19 @@
 #include "pdns/namespaces.hh"
 #include "pdns/misc.hh"
 
+#include "engine.cpp"
 
 class DevDnsBackend : public DNSBackend {
 public:
-    DevDnsBackend(const string &suffix = "");
+    explicit DevDnsBackend(const string &suffix = "");
 
-    DevDnsBackend(const string &command, int timeout, int abiVersion);
+    //DevDnsBackend(const string &command, int timeout, int abiVersion);
 
-    ~DevDnsBackend();
+    ~DevDnsBackend() override;
 
-    void lookup(const QType &, const DNSName &qdomain, int zoneId, DNSPacket *p = nullptr) override;
+    void lookup(const QType &, const DNSName &qdomain, int zoneId, DNSPacket *p) override;
 
-    bool list(const DNSName &target, int domain_id, bool include_disabled = false) override;
+    bool list(const DNSName &target, int domain_id, bool include_disabled) override;
 
     bool get(DNSResourceRecord &r) override;
 
@@ -31,11 +32,14 @@ public:
 
 private:
     std::unique_ptr<Regex> d_regex;
+    string soa_record;
+    string base_domain;
     DNSName d_qname;
     string q_content;
     QType d_qtype;
     bool d_discard;
 
-    std::regex domain_regex1;
-    std::regex domain_regex2;
+    DevDsnEngine engine;
+
+
 };
