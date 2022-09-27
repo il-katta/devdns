@@ -1,0 +1,76 @@
+include(FetchContent)
+include(ExternalProject)
+
+cmake_minimum_required(VERSION 3.6)
+set(CMAKE_CXX_STANDARD 17)
+
+set(LIB_NAME "devdnsbackend")
+set(PDNS_TAG "auth-4.6.3")
+set(UACME_TAG "v1.7.3")
+set(DEPENDENCIES)
+option (USE_SUPERBUILD "Whether or not a superbuild should be invoked" ON)
+
+project(${LIB_NAME})
+
+if (USE_SUPERBUILD)
+    set_property (DIRECTORY PROPERTY EP_BASE Dependencies)
+
+    find_program(MAKE NAMES make)
+    list (APPEND DEPENDENCIES uacme)
+    ExternalProject_Add(
+            uacme
+            GIT_REPOSITORY https://github.com/ndilieto/uacme.git
+            GIT_TAG ${UACME_TAG}
+            CONFIGURE_COMMAND "./configure --disable-maintainer-mode"
+            BUILD_COMMAND "${MAKE}"
+    )
+    ExternalProject_Get_property(uacme SOURCE_DIR)
+    message("Source dir of uacme = ${SOURCE_DIR}")
+    #target_include_directories(${LIB_NAME} PRIVATE ${SOURCE_DIR})
+    message("PROJECT_SOURCE_DIR = ${PROJECT_SOURCE_DIR}")
+    ExternalProject_Add (${LIB_NAME}
+            DEPENDS ${DEPENDENCIES}
+            SOURCE_DIR ${PROJECT_SOURCE_DIR}
+            CMAKE_ARGS -DUSE_SUPERBUILD=OFF ${EXTRA_CMAKE_ARGS}
+            INSTALL_COMMAND ""
+            BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/blah)
+else()
+    add_library(${LIB_NAME} MODULE src/${LIB_NAME}.cpp)
+    target_include_directories(${LIB_NAME} PRIVATE include)
+    target_include_directories(${LIB_NAME} PRIVATE src)
+
+    # ftm dep
+    find_library(FMT_LIBRARIES fmt REQUIRED)
+    target_link_libraries(${LIB_NAME} ${FMT_LIBRARIES})
+
+    # pdns headers
+    FetchContent_Declare(
+            pdns
+            GIT_REPOSITORY https://github.com/PowerDNS/pdns.git
+            GIT_TAG ${PDNS_TAG}
+    )
+    FetchContent_MakeAvailable(pdns)
+    FetchContent_GetProperties(pdns)
+
+    target_include_directories(${LIB_NAME} PRIVATE ${pdns_SOURCE_DIR})
+
+    # uacme
+    FetchContent_Declare(
+            uacme
+            GIT_REPOSITORY https://github.com/ndilieto/uacme.git
+            GIT_TAG ${UACME_TAG}
+    )
+    add_custom_command(
+            TARGET uacme
+            PRE_BUILD
+            COMMAND ./configure
+            WORKING_DIRECTORY ${uacme_SOURCE_DIR}
+    )
+    FetchContent_MakeAvailable(uacme)
+    FetchContent_GetProperties(uacme)
+    target_include_directories(${LIB_NAME} PRIVATE ${uacme_SOURCE_DIR})
+    # install
+    install(TARGETS ${LIB_NAME} DESTINATION lib/pdns)
+endif()
+
+

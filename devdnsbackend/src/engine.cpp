@@ -1,5 +1,6 @@
 #include <iostream>
 #include <utility>
+#include "uacme.c"
 
 class DevDsnEngine {
 public:
@@ -36,6 +37,13 @@ public:
             return false;
         }
     }
+
+
+    static void foo()
+    {
+        check_or_mkdir(true, "foo", S_IRWXU);
+    }
+
 
 private:
     std::string d_base_domain;
