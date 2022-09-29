@@ -4,3 +4,5 @@ devdnsbackend/_build/**
 devdnsbackend/cmake-build*
 .vscode
 .idea
+uacme/
+!devdnsbackend/include/uacme

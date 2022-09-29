@@ -1,3 +1,4 @@
+extern "C" {
 #include <gnutls/abstract.h>
 #include <sys/stat.h>
 #include "config.h"
@@ -5,6 +6,10 @@
 #include "crypto.h"
 
 typedef gnutls_privkey_t privkey_t;
+
+#define PRODUCTION_URL "https://acme-v02.api.letsencrypt.org/directory"
+#define STAGING_URL "https://acme-staging-v02.api.letsencrypt.org/directory"
+#define DEFAULT_CONFDIR SYSCONFDIR "/ssl/uacme"
 
 typedef struct acme {
     privkey_t key;
@@ -29,7 +34,10 @@ typedef struct acme {
     char *certprefix;
 } acme_t;
 
-//char *strcasestr(const char *haystack, const char *needle);
+#if !HAVE_STRCASESTR
+char *strcasestr(const char *haystack, const char *needle);
+#endif
+
 char *find_header(const char *headers, const char *name);
 
 int acme_get(acme_t *a, const char *url);
@@ -76,3 +84,4 @@ void usage(const char *progname);
 void version(const char *progname);
 
 //int main(int argc, char **argv);
+}

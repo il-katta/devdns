@@ -31,7 +31,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pdns)
 FetchContent_GetProperties(pdns)
-
 target_include_directories(${LIB_NAME} PRIVATE ${pdns_SOURCE_DIR})
 
 # uacme
@@ -68,6 +67,7 @@ install(TARGETS ${LIB_NAME} DESTINATION lib/pdns)
 
 project(tests)
 enable_testing()
+
 add_executable(tests src/tests.cpp)
 target_include_directories(tests PRIVATE ${pdns_SOURCE_DIR})
 target_link_libraries(tests ${UACME_LIBRARIES})
@@ -75,3 +75,11 @@ target_link_libraries(tests ${FMT_LIBRARIES})
 target_include_directories(tests PRIVATE include)
 target_include_directories(tests PRIVATE src)
 add_test(NAME tests COMMAND tests)
+
+add_executable(tests2 src/tests2.cpp)
+target_include_directories(tests2 PRIVATE ${pdns_SOURCE_DIR})
+target_link_libraries(tests2 ${UACME_LIBRARIES})
+target_link_libraries(tests2 ${FMT_LIBRARIES})
+target_include_directories(tests2 PRIVATE include)
+target_include_directories(tests2 PRIVATE src)
+add_test(NAME tests2 COMMAND tests2)

@@ -44,8 +44,7 @@ typedef struct json_array {
 
 typedef struct json_value {
     json_type_t type;
-    union
-    {
+    union {
         json_object_t object;
         json_array_t array;
         char *value;
@@ -54,16 +53,18 @@ typedef struct json_value {
 } json_value_t;
 
 json_value_t *json_parse(const char *body, size_t body_len);
+
 void json_dump(FILE *f, const json_value_t *value);
+
 void json_free(json_value_t *value);
-const json_value_t *json_find(const json_value_t *haystack,
-        const char *needle);
-const char *json_find_value(const json_value_t *haystack,
-        const char *needle);
-const char *json_find_string(const json_value_t *haystack,
-        const char *needle);
-int json_compare_string(const json_value_t *haystack,
-        const char *name, const char *value);
+
+const json_value_t *json_find(const json_value_t *haystack, const char *needle);
+
+const char *json_find_value(const json_value_t *haystack, const char *needle);
+
+const char *json_find_string(const json_value_t *haystack, const char *needle);
+
+int json_compare_string(const json_value_t *haystack, const char *name, const char *value);
 
 #endif
 
