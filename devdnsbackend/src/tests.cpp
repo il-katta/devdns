@@ -1,12 +1,15 @@
-#include "engine.cpp"
 #include <iostream>
-extern "C" {
-#include "uacme/uacme.c"
-#include <sys/stat.h>
+#include <acme-lw.h>
+
+
+bool callback(const std::string &type,
+              const std::string &domainName,
+              const std::string &token,
+              const std::string &keyAuthorization) {
+    return false;
 }
 
 int main() {
-    std::cout << "hello" << std::endl;
-    check_or_mkdir(true, "/tmp/devdns-test", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-    return 0;
+    acme_lw::AcmeClient acme{""};
+    auto certificate = acme.issueCertificate({"test.loopback.it"}, callback);
 }

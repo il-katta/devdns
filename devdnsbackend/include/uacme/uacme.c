@@ -1,3 +1,4 @@
+#pragma once
 extern "C" {
 #include <gnutls/abstract.h>
 #include <sys/stat.h>

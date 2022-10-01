@@ -44,27 +44,26 @@ FetchContent_MakeAvailable(uacme)
 FetchContent_GetProperties(uacme)
 exec_program(
         ./configure ${uacme_SOURCE_DIR}
-        ARGS --disable-maintainer-mode --disable-docs --no-create --no-recursion
+        ARGS --disable-maintainer-mode --disable-docs --no-recursion
 )
 # TODO add check to dependency libcurl gnutls ...
 
-#add_custom_command(
-#    TARGET ${LIB_NAME} PRE_BUILD
-#    COMMAND ./configure --disable-maintainer-mode --disable-docs --no-create --no-recursion
-#    WORKING_DIRECTORY ${uacme_SOURCE_DIR}
-#)
-#add_custom_command(
-#    OUTPUT config.h
-#    COMMAND ./configure --disable-maintainer-mode --disable-docs --no-create --no-recursion
-#    WORKING_DIRECTORY ${uacme_SOURCE_DIR}
-#)
+# acme_lw
+FetchContent_Declare(
+        acme_lw
+        GIT_REPOSITORY https://git.loopback.it/andrea/acme-lw.git
+        GIT_TAG master
+)
+FetchContent_MakeAvailable(acme_lw)
+FetchContent_GetProperties(acme_lw)
+target_include_directories(${LIB_NAME} PUBLIC ${acme_lw_SOURCE_DIR})
+target_link_libraries(${LIB_NAME} acme_lw)
 
-target_include_directories(${LIB_NAME} PRIVATE ${uacme_SOURCE_DIR})
 
 # install
 install(TARGETS ${LIB_NAME} DESTINATION lib/pdns)
 
-
+# tests
 project(tests)
 enable_testing()
 
@@ -72,6 +71,8 @@ add_executable(tests src/tests.cpp)
 target_include_directories(tests PRIVATE ${pdns_SOURCE_DIR})
 target_link_libraries(tests ${UACME_LIBRARIES})
 target_link_libraries(tests ${FMT_LIBRARIES})
+target_include_directories(tests PUBLIC ${acme_lw_SOURCE_DIR})
+target_link_libraries(tests acme_lw)
 target_include_directories(tests PRIVATE include)
 target_include_directories(tests PRIVATE src)
 add_test(NAME tests COMMAND tests)
@@ -82,4 +83,6 @@ target_link_libraries(tests2 ${UACME_LIBRARIES})
 target_link_libraries(tests2 ${FMT_LIBRARIES})
 target_include_directories(tests2 PRIVATE include)
 target_include_directories(tests2 PRIVATE src)
+target_include_directories(tests2 PUBLIC ${acme_lw_SOURCE_DIR})
+target_link_libraries(tests2 acme_lw)
 add_test(NAME tests2 COMMAND tests2)

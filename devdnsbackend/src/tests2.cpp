@@ -1,10 +1,12 @@
 #include "engine.cpp"
+#include "acme-lw.h"
 #include <iostream>
 #include <fmt/core.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>
-#include <stdio.h>
+#include <cstdio>
+#include <fstream>
 
 extern "C" {
 #include "uacme/uacme.c"
@@ -16,7 +18,6 @@ bool file_exists(const std::string &filepath) {
     return (access(filepath.c_str(), F_OK) != -1);
 }
 
-extern "C" {
 acme_t a;
 
 void _out(char *csr, char *keyname, char **names) {
@@ -39,13 +40,39 @@ void _out(char *csr, char *keyname, char **names) {
     free(csr);
     crypto_deinit();
     //curl_global_cleanup();
+    /*
     if (names) {
-        for (int i = 0; names && names[i]; i++)
+        for (int i = 0; names[i]; i++)
             free(names[i]);
         free(names);
     }
+    */
+    acme_lw::AcmeClient::teardown();
+}
+bool callback(const std::string &type,
+              const std::string &domainName,
+              const std::string &token,
+              const std::string &keyAuthorization) {
+    return type == "dns-01";
 }
 
+std::string readFile(const std::string &fileName) {
+    std::ifstream f(fileName);
+    if (f.fail()) {
+        std::cout << "Unable to open " << fileName << "\n";
+        exit(1);
+    }
+
+    std::stringstream ss;
+    ss << f.rdbuf();
+    f.close();
+    if (f.fail()) {
+        std::cout << "Failure reading " << fileName << "\n";
+        exit(1);
+    }
+
+    return ss.str();
+}
 
 int main() {
     memset(&a, 0, sizeof(a));
@@ -83,6 +110,13 @@ int main() {
             std::cout << "account_new ok" << std::endl;
         }
     }
+    acme_lw::AcmeClient::init();
+    acme_lw::AcmeClient acme{readFile(keyname)};
+    std::list<std::string> certificateNames = {names[0], names[1]};
+    auto certificate = acme.issueCertificate(certificateNames, callback);
+
+    _out(nullptr, keyname, _names);
+    return 0;
 
     auto csr = csr_gen(_names, false, a.key);
     if (!csr) {
@@ -90,6 +124,11 @@ int main() {
         _out(csr, keyname, _names);
         return 1;
     }
+
+
+
+
+
     if (!cert_issue(&a, _names, csr)) {
         std::cout << "cert_issue fail" << std::endl;
         _out(csr, keyname, _names);
@@ -97,7 +136,4 @@ int main() {
     }
     std::cout << fmt::format("hello {}", csr) << std::endl;
     return 0;
-}
-
-
 }
