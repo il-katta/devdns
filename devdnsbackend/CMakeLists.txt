@@ -28,9 +28,8 @@ target_link_libraries(${LIB_NAME} ${UACME_LIBRARIES})
 
 # pq
 find_library(PQ_LIBRARIES pq REQUIRED)
-find_package(PostgreSQL REQUIRED)
 find_package(gpgsqlbackend REQUIRED)
-target_link_libraries(${LIB_NAME} ${PQ_LIBRARIES} ${PostgreSQL_LIBRARIES} ${GPSQLBACKEND_LIBRARY})
+target_link_libraries(${LIB_NAME} ${PQ_LIBRARIES} ${GPSQLBACKEND_LIBRARY})
 
 # pdns headers
 FetchContent_Declare(
