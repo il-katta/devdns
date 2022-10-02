@@ -22,25 +22,26 @@ RUN set -x && \
     git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns && \
     cd /usr/local/pdns && \
     autoreconf -vi && \
+    CPPFLAGS="-I/usr/include/decaf" \
     ./configure \
-    --prefix=/usr \
-    --sysconfdir=/etc/powerdns \
-    --sbindir=/usr/bin \
-    --with-modules="" \
-    --with-dynmodules="gpgsql pipe bind" \
-    --docdir=/usr/share/doc/powerdns \
-    --with-libsodium \
-    --with-libdecaf=/usr/include/decaf \
-    --enable-tools \
-    --enable-ixfrdist \
-    --enable-dns-over-tls \
-    --disable-dependency-tracking \
-    --disable-silent-rules \
-    --enable-reproducible \
-    --enable-unit-tests \
-    --with-service-user=pdns --with-service-group=pdns && \
+        --prefix=/usr \
+        --sysconfdir=/etc/powerdns \
+        --sbindir=/usr/bin \
+        --with-modules="" \
+        --with-dynmodules="gpgsql pipe bind" \
+        --docdir=/usr/share/doc/powerdns \
+        --with-libsodium \
+        --with-libdecaf \
+        --enable-tools \
+        --enable-ixfrdist \
+        --enable-dns-over-tls \
+        --disable-dependency-tracking \
+        --disable-silent-rules \
+        --enable-reproducible \
+        --enable-unit-tests \
+        --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install && make install \
+    make DESTDIR=/output/ install && make install &&\
     # uacme
     git clone https://git.loopback.it/andrea/uacme.git --branch lib /usr/local/uacme && \
     cd /usr/local/uacme && \
