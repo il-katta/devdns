@@ -1,15 +1,27 @@
 #include <iostream>
-#include <acme-lw.h>
+#include <fmt/core.h>
+#include "engine.cpp"
 
-
-bool callback(const std::string &type,
-              const std::string &domainName,
-              const std::string &token,
-              const std::string &keyAuthorization) {
-    return false;
-}
+auto engine = DevDsnEngine("");
 
 int main() {
-    acme_lw::AcmeClient acme{""};
-    auto certificate = acme.issueCertificate({"test.loopback.it"}, callback);
+    std::string response;
+    if (!engine.check_request("1.1.1.1.a.devdns.sh.", response)) {
+        std::cout << "check fail [1]" << std::endl;
+        return 1;
+    }
+    if (response != "1.2.3.4") {
+        std::cout << fmt::format("'{}' != '{}'", response, "1.2.3.4") << std::endl;
+        return 1;
+    }
+    if (engine.check_request("1.2.3.a.example.test.", response)) {
+        std::cout << "check fail [2]" << std::endl;
+        return 1;
+    }
+
+    if (!engine.check_request("abc.1.2.3.4.a.example.test.", response)) {
+        std::cout << "check fail [3]" << std::endl;
+        return 1;
+    }
+    return 0;
 }

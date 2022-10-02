@@ -5,4 +5,8 @@ devdnsbackend/cmake-build*
 .vscode
 .idea
 uacme/
+acme-lw/
+conf/pdns.sqlite3
+conf/pdns.sqlite3-shm
+conf/pdns.sqlite3-wal
 !devdnsbackend/include/uacme

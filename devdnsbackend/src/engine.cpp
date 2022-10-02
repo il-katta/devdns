@@ -6,17 +6,12 @@
 
 class DevDsnEngine {
 public:
-    DevDsnEngine() {
-        d_base_domain = "";
-    }
-
-    explicit DevDsnEngine(std::string base_domain) {
+    explicit DevDsnEngine(std::string base_domain = "") {
         d_base_domain = std::move(base_domain);
         std::string ip_regex = R"(((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4})";
         std::string st_regex = R"(((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61})";
         std::string s_regex1 = "^(" + st_regex + "\\.)?(" + ip_regex + ")(\\." + st_regex + "){2,3}\\.$";
         domain_regex1 = std::regex(s_regex1, std::regex_constants::ECMAScript | std::regex_constants::icase);
-
     }
 
     bool check_request(const std::string &s_name, std::string &ipaddress) {

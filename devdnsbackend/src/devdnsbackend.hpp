@@ -11,10 +11,11 @@
 #include "pdns/misc.hh"
 
 #include "engine.cpp"
+#include "modules/gpgsqlbackend/gpgsqlbackend.hh"
 
-class DevDnsBackend : public DNSBackend {
+class DevDnsBackend : public gPgSQLBackend {
 public:
-    explicit DevDnsBackend(const string &suffix = "");
+    explicit DevDnsBackend(const string &mode, const string &suffix);
 
     //DevDnsBackend(const string &command, int timeout, int abiVersion);
 
@@ -35,11 +36,18 @@ private:
     string soa_record;
     string base_domain;
     DNSName d_qname;
+    string d_sname;
+    string d_stype;
+    string d_sremote;
     string q_content;
     QType d_qtype;
-    bool d_discard;
+    bool d_match;
+    bool d_answered;
+    std::optional<ComboAddress> d_remote;
 
     DevDsnEngine engine;
 
-
+    void dlog(std::string message);
+    bool get_devdns(DNSResourceRecord &r);
+    bool get_sql(DNSResourceRecord &r);
 };

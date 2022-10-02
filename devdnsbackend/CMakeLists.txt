@@ -9,6 +9,8 @@ set(PDNS_TAG "auth-4.6.3")
 set(UACME_TAG "upstream/1.7.3")
 set(DEPENDENCIES)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 project(${LIB_NAME})
 
 add_library(${LIB_NAME} MODULE src/${LIB_NAME}.cpp)
@@ -22,6 +24,13 @@ target_link_libraries(${LIB_NAME} ${FMT_LIBRARIES})
 # uacme
 find_library(UACME_LIBRARIES uacme REQUIRED)
 target_link_libraries(${LIB_NAME} ${UACME_LIBRARIES})
+
+
+# pq
+find_library(PQ_LIBRARIES pq REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(gpgsqlbackend REQUIRED)
+target_link_libraries(${LIB_NAME} ${PQ_LIBRARIES} ${PostgreSQL_LIBRARIES} ${GPSQLBACKEND_LIBRARY})
 
 # pdns headers
 FetchContent_Declare(

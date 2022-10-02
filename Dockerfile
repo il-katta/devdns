@@ -4,12 +4,20 @@ ADD devdnsbackend /usr/local/devdnsbackend
 
 RUN set -x && \
     apt-get -qq update && \
-    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
+    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libssl-dev libluajit-5.1-dev python3-venv \
         autoconf automake ragel bison flex \
         git curl wget cmake \
         libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
         libgnutls28-dev && \
     apt-get clean all -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    mkdir -p /usr/src/libdecaf && \
+    # libdecaf
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    wget "https://sourceforge.net/projects/ed448goldilocks/files/libdecaf-1.0.0.tgz/download" -O - | tar xz -C /usr/src/libdecaf --strip-components=1 && \
+    cd /usr/src/libdecaf && \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr . && \
+    make && \
+    make DESTDIR=/output/ install && make install && \
     # powerdns build & install
     git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns && \
     cd /usr/local/pdns && \
@@ -19,9 +27,10 @@ RUN set -x && \
     --sysconfdir=/etc/powerdns \
     --sbindir=/usr/bin \
     --with-modules="" \
-    --with-dynmodules="gsqlite3 pipe bind" \
+    --with-dynmodules="gpgsql pipe bind" \
     --docdir=/usr/share/doc/powerdns \
     --with-libsodium \
+    --with-libdecaf=/usr/include/decaf \
     --enable-tools \
     --enable-ixfrdist \
     --enable-dns-over-tls \
@@ -31,15 +40,14 @@ RUN set -x && \
     --enable-unit-tests \
     --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install  && \
+    make DESTDIR=/output/ install && make install \
     # uacme
     git clone https://git.loopback.it/andrea/uacme.git --branch lib /usr/local/uacme && \
     cd /usr/local/uacme && \
     autoreconf -vi && \
     ./configure --prefix=/usr --disable-maintainer-mode --disable-docs && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install && \
-    make install  && \
+    make DESTDIR=/output/ install && make install  && \
     # devdnsbackend build & install
     cd /usr/local/devdnsbackend && \
     mkdir -p build && \
