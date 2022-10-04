@@ -6,8 +6,6 @@ extern "C" {
 #include "json.h"
 #include "crypto.h"
 
-typedef gnutls_privkey_t privkey_t;
-
 #define PRODUCTION_URL "https://acme-v02.api.letsencrypt.org/directory"
 #define STAGING_URL "https://acme-staging-v02.api.letsencrypt.org/directory"
 #define DEFAULT_CONFDIR SYSCONFDIR "/ssl/uacme"

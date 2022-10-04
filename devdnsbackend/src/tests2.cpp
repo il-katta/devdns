@@ -1,18 +1,25 @@
-#include "engine.cpp"
-#include "acme-lw.h"
 #include <iostream>
-#include <fmt/core.h>
+#include <fstream>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <cstdio>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <string>
-#include <cstdio>
-#include <fstream>
-
-extern "C" {
 #include "uacme/uacme.c"
 #include "uacme/msg.h"
 #include "uacme/curlwrap.h"
+#ifdef __cplusplus
 }
+#endif
+
+#include "engine.cpp"
+#include "acme-lw.h"
+#include <fmt/core.h>
+#include <string>
+#include <functional>
+
+
 
 bool file_exists(const std::string &filepath) {
     return (access(filepath.c_str(), F_OK) != -1);
@@ -113,7 +120,13 @@ int main() {
     acme_lw::AcmeClient::init();
     acme_lw::AcmeClient acme{readFile(keyname)};
     std::list<std::string> certificateNames = {names[0], names[1]};
-    auto certificate = acme.issueCertificate(certificateNames, callback);
+    std::function<bool(const std::string &, const std::string &, const std::string &, const std::string &)> cb = [](const std::string &type,
+                 const std::string &domainName,
+                 const std::string &token,
+                 const std::string &keyAuthorization) {
+        return callback(type,domainName,token, keyAuthorization);
+    };
+    auto certificate = acme.issueCertificate(certificateNames, cb);
 
     _out(nullptr, keyname, _names);
     return 0;
@@ -124,10 +137,6 @@ int main() {
         _out(csr, keyname, _names);
         return 1;
     }
-
-
-
-
 
     if (!cert_issue(&a, _names, csr)) {
         std::cout << "cert_issue fail" << std::endl;

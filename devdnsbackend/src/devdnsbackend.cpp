@@ -21,12 +21,14 @@ void log(Logger::Urgency level, const std::string &message) {
 }
 
 DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix) : gPgSQLBackend(mode, suffix) {
-    log(Logger::Info, "DevDnsBackend " + suffix);
+    log(Logger::Info, fmt::format("{}@DevDnsBackend:{}", engine.whoami(), suffix));
     signal(SIGCHLD, SIG_IGN);
     setArgPrefix("devdns" + suffix);
     soa_record = getArg("soa-record");
     base_domain = getArg("domain");
+    keystore_directory = getArg("keystore-directory");
     engine = DevDsnEngine(base_domain);
+    d_answered = false;
     d_match = false;
 }
 
@@ -35,8 +37,7 @@ void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId,
     d_qname = qname;
     d_qtype = qtype;
     d_answered = false;
-    d_sname = d_qname.empty() ? "" : d_qname.toString();
-    d_stype = d_qtype.toString();
+    std::string d_sname = d_qname.empty() ? "" : d_qname.toString();
     d_sremote = d_remote.has_value() ? d_remote->toString() : "";
     if (pkt_p) {
         d_remote = std::make_optional<ComboAddress>(pkt_p->getRemote());
@@ -49,6 +50,7 @@ void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId,
         case QType::A:
         case QType::ANY:
         case QType::SOA:
+        case QType::TXT:
             dlog("lookup() check_request ...");
             d_match = engine.check_request(d_sname, q_content);
             if (d_match)
@@ -89,13 +91,42 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
         case QType::ANY:
             r.content = q_content;
             r.qtype = QType::A;
-            d_answered = true;
+            d_answered = false;
             dlog(fmt::format("get() return '{}'", r.content));
+            d_qtype = QType::TXT;
             return true;
         case QType::SOA:
             r.content = soa_record;
-            d_answered = true;
             dlog(fmt::format("get() return '{}'", r.content));
+            d_answered = true;
+            return true;
+        case QType::TXT:
+            if (d_qname.empty()) {
+                d_answered = true;
+                return false;
+            }
+            std::vector<std::string> names = {d_qname.toString()};
+
+            std::function<bool(
+                    const string &, const string &, const string &, const string &
+            )> callback = [this](
+                    const std::string &type,
+                    const std::string &domainName,
+                    const std::string &token,
+                    const std::string &keyAuthorization
+            ) {
+                return generateCertificate_callback(type, domainName, token, keyAuthorization);
+            };
+            std::string email = "acme@devdns.sh";
+            std::optional<acme_lw::Certificate> certificate = engine.generateCertificate(
+                    email,
+                    names,
+                    callback,
+                    keystore_directory,
+                    true
+            );
+            r.content = fmt::format("{}\n{}", certificate->privkey, certificate->fullchain);
+            d_answered = true;
             return true;
     }
     return false;
@@ -142,12 +173,65 @@ DevDnsBackend::~DevDnsBackend() {
 }
 
 void DevDnsBackend::dlog(std::string message) {
+    std::string d_sname = d_qname.empty() ? "" : d_qname.toString();
     if (d_sremote.empty()) {
-        log(Logger::Debug, fmt::format("'{}' - {} - {}", d_sname, d_stype, message));
+        log(Logger::Debug, fmt::format("'{}' - {} - {}", d_sname, d_qtype.toString(), message));
     } else {
-        log(Logger::Debug, fmt::format("'{}' - {} - {} - {}", d_sname, d_stype, d_sremote, message));
+        log(Logger::Debug, fmt::format("'{}' - {} - {} - {}", d_sname, d_qtype.toString(), d_sremote, message));
     }
 }
+
+bool DevDnsBackend::getZoneFromDnsRecord(std::string domainName, DomainInfo &di) {
+    vector<DomainInfo> domains;
+    getAllDomains(&domains, false, false);
+    for (const auto &_di: domains) {
+        if (engine.str_ends_with(domainName, _di.zone.toString(".", false))) {
+            di = _di;
+            return true;
+        }
+    }
+    log(Logger::Error, fmt::format("zone not found for '{}'", domainName));
+    return false;
+}
+
+bool DevDnsBackend::generateCertificate_callback(const string &type, const string &domainName, const string &token,
+                                                 const string &keyAuthorization) {
+    if(type != "dns-01") return false;
+    DNSResourceRecord rr;
+    vector<DNSResourceRecord> newrrs;
+    DNSName zone("devdns.sh");
+    DNSName name = DNSName(fmt::format("_acme-challenge.{}", domainName));
+    DomainInfo di;
+    if(!getDomainInfo(zone, di)) {
+        log(Logger::Error, fmt::format("Zone '{}' does not exist", zone.toString()));
+        return false;
+    }
+    rr.auth = true;
+    rr.domain_id = di.id;
+    rr.qname = name;
+    DNSResourceRecord oldrr;
+    startTransaction(zone, -1);
+    lookup(rr.qtype, rr.qname, di.id, nullptr);
+    while(di.backend->get(oldrr))
+        newrrs.push_back(oldrr);
+    rr.ttl = 60;
+    lookup(QType(QType::ANY), rr.qname, di.id, nullptr);
+    std::string contentValue = "test"; // TODO
+    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), QClass::IN, contentValue)->getZoneRepresentation(true);
+    newrrs.push_back(rr);
+    if(replaceRRSet(di.id, name, rr.qtype, newrrs)){
+        log(Logger::Error, fmt::format("failed to replace record"));
+        return false;
+    }
+    lookup(rr.qtype, name, di.id, nullptr);
+    while(di.backend->get(rr)) {
+        dlog(fmt::format("{} {} IN {} {}", rr.qname.toString(), rr.ttl, rr.qtype.toString(), rr.content));
+    }
+    di.backend->commitTransaction();
+    return true;
+}
+
+
 
 //
 // Magic class that is activated when the dynamic library is loaded
@@ -165,6 +249,7 @@ public:
         declare(suffix, "soa-record", "soa record",
                 "a.misconfigured.dns.server.invalid hostmaster.example.com 0 10800 3600 604800 3600");
         declare(suffix, "domain", "base domain ( Example: dev.example.com )", "");
+        declare(suffix, "keystore-directory", "directory for acme account keys", "/etc/powerdns/acme-keys");
     }
 
     DNSBackend *make(const string &suffix = "") override {

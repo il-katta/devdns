@@ -22,14 +22,17 @@ RUN set -x && \
     git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns && \
     cd /usr/local/pdns && \
     autoreconf -vi && \
-    CPPFLAGS="-I/usr/include/decaf" \
+    CFLAGS="-march=native -O2 -pipe" \
+    CPPFLAGS="${CFLAGS} -I/usr/include/decaf" \
+    CXXFLAGS="${CXXFLAGS}" \
     ./configure \
         --prefix=/usr \
         --sysconfdir=/etc/powerdns \
         --sbindir=/usr/bin \
         --with-modules="" \
-        --with-dynmodules="gpgsql pipe bind" \
+        --with-dynmodules="gpgsql pipe" \
         --docdir=/usr/share/doc/powerdns \
+        --with-sqlite3 \
         --with-libsodium \
         --with-libdecaf \
         --enable-tools \
@@ -39,6 +42,7 @@ RUN set -x && \
         --disable-silent-rules \
         --enable-reproducible \
         --enable-unit-tests \
+        --disable-systemd \
         --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
     make DESTDIR=/output/ install && make install &&\

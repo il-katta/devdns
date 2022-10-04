@@ -6,6 +6,7 @@ devdnsbackend/cmake-build*
 .idea
 uacme/
 acme-lw/
+pdns/
 conf/pdns.sqlite3
 conf/pdns.sqlite3-shm
 conf/pdns.sqlite3-wal
