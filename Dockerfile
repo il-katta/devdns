@@ -60,7 +60,7 @@ RUN set -x && \
     cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .. && \
     make devdnsbackend && \
     make DESTDIR=/output/ install && \
-    apt-get -qq -y remove g++ libboost-all-dev libtool make pkg-config default-libmysqlclient-dev libssl-dev libluajit-5.1-dev python3-venv \
+    apt-get -qq -y remove g++ libboost-all-dev libtool make pkg-config libssl-dev libluajit-5.1-dev python3-venv \
         autoconf automake ragel bison flex git curl wget cmake libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev && \
     apt-get clean all -y && apt-get autoclean -y
 
