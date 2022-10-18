@@ -2,6 +2,8 @@
 #include "config.h"
 #endif
 
+#define PDNS_BACKEND
+
 #include <string>
 #include <map>
 #include <iostream>
@@ -13,23 +15,37 @@
 #include "pdns/logger.hh"
 #include "devdnsbackend.hpp"
 #include "modules/gpgsqlbackend/gpgsqlbackend.cc"
+#include "storage.cpp"
 
-static const char *kBackendId = "[DEVDNSBackend]";
-
-void log(Logger::Urgency level, const std::string &message) {
-    g_log << level << kBackendId << " " << message << std::endl;
-}
-
-DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix) : gPgSQLBackend(mode, suffix) {
-    log(Logger::Info, fmt::format("{}@DevDnsBackend:{}", engine.whoami(), suffix));
+DevDnsBackend::DevDnsBackend(
+        const string &mode,
+        const string &suffix,
+        DevDsnEngine engine
+) : gPgSQLBackend(mode, suffix), engine(engine) {
+    log_info("{}@DevDnsBackend:{}", engine.whoami(), suffix);
     signal(SIGCHLD, SIG_IGN);
     setArgPrefix("devdns" + suffix);
     soa_record = getArg("soa-record");
     base_domain = getArg("domain");
     keystore_directory = getArg("keystore-directory");
-    engine = DevDsnEngine(base_domain);
+
     d_answered = false;
     d_match = false;
+}
+
+DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix) : DevDnsBackend::DevDnsBackend(
+        mode,
+        suffix,
+        DevDsnEngine(
+                getArg("dbname"),
+                getArg("host"),
+                getArg("port"),
+                getArg("user"),
+                getArg("password"),
+                getArg("extra-connection-parameters"),
+                getArg("domain")
+        )
+) {
 }
 
 
@@ -91,13 +107,13 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
         case QType::ANY:
             r.content = q_content;
             r.qtype = QType::A;
+            dlog("get() return '{}'", r.content);
             d_answered = false;
-            dlog(fmt::format("get() return '{}'", r.content));
             d_qtype = QType::TXT;
             return true;
         case QType::SOA:
             r.content = soa_record;
-            dlog(fmt::format("get() return '{}'", r.content));
+            dlog("get() return '{}'", r.content);
             d_answered = true;
             return true;
         case QType::TXT:
@@ -105,7 +121,8 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
                 d_answered = true;
                 return false;
             }
-            std::vector<std::string> names = {d_qname.toString()};
+            /*
+            std::vector<std::string> names = {DevDsnEngine::str_trim_end(d_qname.toString(), '.')};
 
             std::function<bool(
                     const string &, const string &, const string &, const string &
@@ -126,6 +143,8 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
                     true
             );
             r.content = fmt::format("{}\n{}", certificate->privkey, certificate->fullchain);
+            */
+            r.content = "hello there";
             d_answered = true;
             return true;
     }
@@ -141,7 +160,7 @@ bool DevDnsBackend::get_sql(DNSResourceRecord &r) {
         dlog("get() using gPgSQL backend [q_content empty]");
     bool ret = gPgSQLBackend::get(r);
     if (ret) {
-        dlog(fmt::format("get() using gPgSQL backend. response: {}", r.content));
+        dlog("get() using gPgSQL backend. response: {}", r.content);
     }
     return ret;
 }
@@ -181,6 +200,11 @@ void DevDnsBackend::dlog(std::string message) {
     }
 }
 
+template<typename... T>
+void DevDnsBackend::dlog(std::string str, T &&... args) {
+    dlog(fmt::format(str, args...));
+}
+
 bool DevDnsBackend::getZoneFromDnsRecord(std::string domainName, DomainInfo &di) {
     vector<DomainInfo> domains;
     getAllDomains(&domains, false, false);
@@ -196,13 +220,13 @@ bool DevDnsBackend::getZoneFromDnsRecord(std::string domainName, DomainInfo &di)
 
 bool DevDnsBackend::generateCertificate_callback(const string &type, const string &domainName, const string &token,
                                                  const string &keyAuthorization) {
-    if(type != "dns-01") return false;
+    if (type != "dns-01") return false;
     DNSResourceRecord rr;
     vector<DNSResourceRecord> newrrs;
     DNSName zone("devdns.sh");
     DNSName name = DNSName(fmt::format("_acme-challenge.{}", domainName));
     DomainInfo di;
-    if(!getDomainInfo(zone, di)) {
+    if (!getDomainInfo(zone, di)) {
         log(Logger::Error, fmt::format("Zone '{}' does not exist", zone.toString()));
         return false;
     }
@@ -212,20 +236,21 @@ bool DevDnsBackend::generateCertificate_callback(const string &type, const strin
     DNSResourceRecord oldrr;
     startTransaction(zone, -1);
     lookup(rr.qtype, rr.qname, di.id, nullptr);
-    while(di.backend->get(oldrr))
+    while (di.backend->get(oldrr))
         newrrs.push_back(oldrr);
     rr.ttl = 60;
     lookup(QType(QType::ANY), rr.qname, di.id, nullptr);
     std::string contentValue = "test"; // TODO
-    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), QClass::IN, contentValue)->getZoneRepresentation(true);
+    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), QClass::IN, contentValue)->getZoneRepresentation(
+            true);
     newrrs.push_back(rr);
-    if(replaceRRSet(di.id, name, rr.qtype, newrrs)){
+    if (replaceRRSet(di.id, name, rr.qtype, newrrs)) {
         log(Logger::Error, fmt::format("failed to replace record"));
         return false;
     }
     lookup(rr.qtype, name, di.id, nullptr);
-    while(di.backend->get(rr)) {
-        dlog(fmt::format("{} {} IN {} {}", rr.qname.toString(), rr.ttl, rr.qtype.toString(), rr.content));
+    while (di.backend->get(rr)) {
+        dlog("{} {} IN {} {}", rr.qname.toString(), rr.ttl, rr.qtype.toString(), rr.content);
     }
     di.backend->commitTransaction();
     return true;

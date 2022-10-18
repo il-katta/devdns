@@ -4,8 +4,15 @@
 
 int main() {
 
-    DevDsnEngine engine{};
-
+    DevDsnEngine engine{
+        "devdns",
+        "localhost",
+        "5432",
+        "devdns",
+        "devdns",
+        "",
+        "devdns.sh"
+    };
     std::string email = "acme@devdns.sh";
     std::string domain = "example.devdns.sh";
     std::vector<string> names = {domain};

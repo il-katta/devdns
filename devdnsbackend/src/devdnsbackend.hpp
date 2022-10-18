@@ -9,12 +9,13 @@
 #include "pdns/dnsbackend.hh"
 #include "pdns/namespaces.hh"
 #include "pdns/misc.hh"
-
+#include "fmt/core.h"
 #include "engine.cpp"
 #include "modules/gpgsqlbackend/gpgsqlbackend.hh"
 
 class DevDnsBackend : public gPgSQLBackend {
 public:
+    explicit DevDnsBackend(const string &mode, const string &suffix, DevDsnEngine engine);
     explicit DevDnsBackend(const string &mode, const string &suffix);
 
     //DevDnsBackend(const string &command, int timeout, int abiVersion);
@@ -47,6 +48,9 @@ private:
     DevDsnEngine engine;
 
     void dlog(std::string message);
+
+    template <typename... T>
+    void dlog(std::string str, T&&... args);
 
     bool get_devdns(DNSResourceRecord &r);
 

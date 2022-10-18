@@ -4,7 +4,7 @@ ADD devdnsbackend /usr/local/devdnsbackend
 
 RUN set -x && \
     apt-get -qq update && \
-    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libssl-dev libluajit-5.1-dev python3-venv \
+    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv \
         autoconf automake ragel bison flex \
         git curl wget cmake \
         libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
@@ -61,7 +61,7 @@ RUN set -x && \
     make devdnsbackend && \
     make DESTDIR=/output/ install && \
     apt-get -qq -y remove g++ libboost-all-dev libtool make pkg-config libssl-dev libluajit-5.1-dev python3-venv \
-        autoconf automake ragel bison flex git curl wget cmake libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev && \
+        autoconf automake ragel bison flex git curl wget cmake libsqlite3-dev libpqxx-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev && \
     apt-get clean all -y && apt-get autoclean -y
 
 
@@ -70,7 +70,7 @@ COPY --from=builder /output/ /
 
 RUN set -x && \
     apt-get -qq update && \
-    apt-get -y install sqlite3 libboost-program-options1.74.0 libssl1.1 libluajit-5.1 python3 libsqlite3-0 libyaml-cpp0.6 libcurl4 libsodium23 libfmt7 && \
+    apt-get -y install sqlite3 libboost-program-options1.74.0 libssl1.1 libluajit-5.1 python3 libpqxx-6.4 libsqlite3-0 libyaml-cpp0.6 libcurl4 libsodium23 libfmt7 && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN set -x && \

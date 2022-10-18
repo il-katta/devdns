@@ -19,26 +19,54 @@ extern "C" {
 }
 #endif
 
-#include "acme-lw.h"
-#include <fmt/core.h>
 #include <string>
 #include <functional>
 #include <regex>
 #include <utility>
-#include "uacme/uacme.c"
 #include <optional>
+
+#include "acme-lw.h"
+#include "logger.h"
+#include "storage.cpp"
 
 using namespace std;
 
+static const char *kBackendId = "[DEVDNSBackend]";
+
 class DevDsnEngine {
 public:
-    explicit DevDsnEngine(std::string base_domain = "") {
+    explicit DevDsnEngine(
+            string db_name,
+            string db_host,
+            string db_port,
+            string db_user,
+            string db_password,
+            string db_extra_connection_parameters,
+            string base_domain = ""
+    ) {
         d_base_domain = std::move(base_domain);
+        d_db_name = db_name;
+        d_db_host = db_host;
+        d_db_port = db_port;
+        d_db_user = db_user;
+        d_db_password = db_password;
+        d_db_extra_connection_parameters = db_extra_connection_parameters;
         std::string ip_regex = R"(((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4})";
         std::string st_regex = R"(((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61})";
         std::string s_regex1 = "^(" + st_regex + "\\.)?(" + ip_regex + ")(\\." + st_regex + "){2,3}\\.$";
         domain_regex1 = std::regex(s_regex1, std::regex_constants::ECMAScript | std::regex_constants::icase);
+        storage = std::make_unique<Storage>(db_name, db_host, db_port, db_user, db_password,
+                                            db_extra_connection_parameters);
     }
+
+    DevDsnEngine(const DevDsnEngine &engine) : DevDsnEngine{
+            engine.d_db_name,
+            engine.d_db_host,
+            engine.d_db_user,
+            engine.d_db_password,
+            engine.d_db_extra_connection_parameters,
+            engine.d_base_domain
+    } {}
 
     bool check_request(const std::string &s_name, std::string &ipaddress) {
         if (!d_base_domain.empty()) {
@@ -89,7 +117,7 @@ public:
             const string &email,
             vector<string> names,
             const function<bool(const string &, const string &, const string &, const string &)> &callback,
-            const string& keystore_directory,
+            const string &keystore_directory,
             bool staging = false
     ) {
         memset(&a, 0, sizeof(a));
@@ -128,7 +156,7 @@ public:
         acme_lw::AcmeClient::init();
         auto key = readFile(keyname);
         acme_lw::AcmeClient acme{key};
-        list <std::string> certificateNames{};
+        list<std::string> certificateNames{};
         for (const string &name: names) {
             certificateNames.insert(certificateNames.end(), name);
         }
@@ -151,6 +179,16 @@ public:
         return "";
     }
 
+    static inline string str_trim_end(string s, char c = 0) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), [c](unsigned char ch) {
+            if (c == 0)
+                return !std::isspace(ch);
+            else
+                return ch != c;
+        }).base(), s.end());
+        return s;
+    }
+
     ~DevDsnEngine() {
         json_free(a.json);
         json_free(a.account);
@@ -167,10 +205,19 @@ public:
         acme_lw::AcmeClient::teardown();
     }
 
+
 private:
     acme_t a{};
     std::string d_base_domain;
     std::regex domain_regex1;
+    std::unique_ptr<Storage> storage;
+
+    string d_db_name;
+    string d_db_host;
+    string d_db_port;
+    string d_db_user;
+    string d_db_password;
+    string d_db_extra_connection_parameters;
 
     void generateCertificate_out(char *keyname = nullptr) const {
         if (keyname) {
