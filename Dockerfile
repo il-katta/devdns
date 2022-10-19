@@ -52,7 +52,7 @@ RUN set -x && \
     autoreconf -vi && \
     ./configure --prefix=/usr --disable-maintainer-mode --disable-docs && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install && make install  && \
+    make DESTDIR=/output/ install && make install && \
     # devdnsbackend build & install
     cd /usr/local/devdnsbackend && \
     mkdir -p build && \
@@ -74,8 +74,6 @@ RUN set -x && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN set -x && \
-    mkdir -p /etc/powerdns && \
-    sqlite3 /etc/powerdns/pdns.sqlite3 < /usr/share/doc/powerdns/schema.sqlite3.sql && \
     useradd pdns && \
     chown -R pdns:pdns /etc/powerdns
 
@@ -84,7 +82,6 @@ RUN set -x && \
     chmod 0755 /init.sh && \
     mkdir -p /var/lib/powerdns && \
     touch /var/lib/powerdns/supermaster.conf
-ENTRYPOINT ["/init.sh"]
 
 ADD conf/pdns.d /etc/powerdns/pdns.d
 ADD conf/named.conf /etc/powerdns/named.conf
@@ -96,3 +93,7 @@ CMD /usr/bin/pdns_server \
     --guardian=no \
     --control-console \
     --loglevel=9
+
+ENV LD_LIBRARY_PATH /usr/lib/pdns/
+
+ENTRYPOINT ["/init.sh"]
