@@ -30,7 +30,7 @@ RUN set -x && \
         --sysconfdir=/etc/powerdns \
         --sbindir=/usr/bin \
         --with-modules="" \
-        --with-dynmodules="gpgsql pipe" \
+        --with-dynmodules="gpgsql bind" \
         --docdir=/usr/share/doc/powerdns \
         --with-sqlite3 \
         --with-libsodium \
