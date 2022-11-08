@@ -22,6 +22,7 @@ find_library(FMT_LIBRARIES fmt REQUIRED)
 # pq
 find_library(PQ_LIBRARY pq REQUIRED)
 find_package(gpgsqlbackend REQUIRED)
+find_path(PQ_INCLUDE_DIR postgresql/libpq-fe.h)
 
 # pqxx
 find_package(PQXX)
@@ -95,6 +96,7 @@ target_link_libraries(${LIB_NAME} PRIVATE -lssl -lcrypto -ldl)
 target_link_libraries(${LIB_NAME} PRIVATE ${FMT_LIBRARIES})
 # pq
 target_link_libraries(${LIB_NAME} PRIVATE ${PQ_LIBRARY} ${GPSQLBACKEND_LIBRARY})
+target_include_directories(${LIB_NAME} PRIVATE ${PQ_INCLUDE_DIR}/postgresql)
 # pqxx
 target_link_libraries(${LIB_NAME} PRIVATE ${PQXX_LIBRARIES})
 # pdns headers
