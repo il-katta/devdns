@@ -17,6 +17,8 @@
 #include "modules/gpgsqlbackend/gpgsqlbackend.cc"
 #include "storage.cpp"
 
+#include <openssl/evp.h>
+
 DevDnsBackend::DevDnsBackend(
         const string &mode,
         const string &suffix,
@@ -33,19 +35,22 @@ DevDnsBackend::DevDnsBackend(
     d_match = false;
 }
 
-DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix) : DevDnsBackend::DevDnsBackend(
-        mode,
-        suffix,
-        DevDsnEngine(
-                getArg("dbname"),
-                getArg("host"),
-                getArg("port"),
-                getArg("user"),
-                getArg("password"),
-                getArg("extra-connection-parameters"),
-                getArg("domain")
-        )
-) {
+DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix): gPgSQLBackend(mode, suffix), engine(getArg("dbname"),
+                                                                                                            getArg("host"),
+                                                                                                            getArg("port"),
+                                                                                                            getArg("user"),
+                                                                                                            getArg("password"),
+                                                                                                            getArg("extra-connection-parameters"),
+                                                                                                            getArg("domain")) {
+    log_info("{}@DevDnsBackend:{}", engine.whoami(), suffix);
+    signal(SIGCHLD, SIG_IGN);
+    setArgPrefix("devdns" + suffix);
+    soa_record = getArg("soa-record");
+    base_domain = getArg("domain");
+    keystore_directory = getArg("keystore-directory");
+
+    d_answered = false;
+    d_match = false;
 }
 
 
@@ -119,31 +124,10 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
         case QType::TXT:
             if (d_qname.empty()) {
                 d_answered = true;
-                return false;
+                r.content = "empty";
+                return true;
             }
-            /*
-            std::vector<std::string> names = {DevDsnEngine::str_trim_end(d_qname.toString(), '.')};
 
-            std::function<bool(
-                    const string &, const string &, const string &, const string &
-            )> callback = [this](
-                    const std::string &type,
-                    const std::string &domainName,
-                    const std::string &token,
-                    const std::string &keyAuthorization
-            ) {
-                return generateCertificate_callback(type, domainName, token, keyAuthorization);
-            };
-            std::string email = "acme@devdns.sh";
-            std::optional<acme_lw::Certificate> certificate = engine.generateCertificate(
-                    email,
-                    names,
-                    callback,
-                    keystore_directory,
-                    true
-            );
-            r.content = fmt::format("{}\n{}", certificate->privkey, certificate->fullchain);
-            */
             r.content = "hello there";
             d_answered = true;
             return true;
@@ -279,7 +263,11 @@ public:
 
     DNSBackend *make(const string &suffix = "") override {
         log(Logger::Debug, "DevdnsFactory make " + suffix);
-        return new DevDnsBackend(d_mode, suffix);
+        log(Logger::Debug, "DevdnsFactory make 2 " + suffix);
+
+        log(Logger::Debug, "DevdnsFactory engine " + suffix);
+        auto pDevDnsBackend = new DevDnsBackend(d_mode, suffix);
+        return pDevDnsBackend;
     }
 
 private:

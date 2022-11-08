@@ -2,31 +2,12 @@
 
 #include <iostream>
 #include <fstream>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <cstdio>
-#include <sys/stat.h>
 #include <unistd.h>
-#include "uacme/uacme.c"
-#include "uacme/msg.h"
-#include "uacme/curlwrap.h"
-
-#include <stdlib.h>
 #include <pwd.h>
-#ifdef __cplusplus
-}
-#endif
-
 #include <string>
 #include <functional>
 #include <regex>
 #include <utility>
-#include <optional>
-
-#include "acme-lw.h"
-#include "logger.h"
 #include "storage.cpp"
 
 using namespace std;
@@ -44,6 +25,7 @@ public:
             string db_extra_connection_parameters,
             string base_domain = ""
     ) {
+        std::cout << "DevDsnEngine init" << std::endl;
         d_base_domain = std::move(base_domain);
         d_db_name = db_name;
         d_db_host = db_host;
@@ -113,60 +95,6 @@ public:
     }
 
 
-    std::optional<acme_lw::Certificate> generateCertificate(
-            const string &email,
-            vector<string> names,
-            const function<bool(const string &, const string &, const string &, const string &)> &callback,
-            const string &keystore_directory,
-            bool staging = false
-    ) {
-        memset(&a, 0, sizeof(a));
-        keytype_t key_type = PK_RSA;
-        int key_bits = 2048;
-        a.email = email.c_str();
-        if (staging) {
-            a.directory = STAGING_URL;
-        } else {
-            a.directory = PRODUCTION_URL;
-        }
-        g_loglevel = 9;
-        char *keyname;
-        asprintf(&keyname, "%s/%s.key", keystore_directory.c_str(), names[0].c_str());
-        std::cout << "acme_bootstrap " << names[0] << " ..." << std::endl;
-        if (!acme_bootstrap(&a)) {
-            std::cout << "acme_bootstrap fails" << std::endl;
-            generateCertificate_out(keyname);
-            return std::make_optional<acme_lw::Certificate>();
-        }
-        std::cout << "acme_bootstrap ok" << std::endl;
-
-        if (file_exists(keyname)) {
-            a.key = key_load(key_type, key_bits, keyname);
-            account_retrieve(&a);
-        } else {
-            a.key = key_load(key_type, key_bits, keyname); // generate a new one
-            std::cout << "account_new ..." << std::endl;
-            if (!account_new(&a, true)) {
-                std::cout << "account_new fails" << std::endl;
-            } else {
-                std::cout << "account_new ok" << std::endl;
-            }
-        }
-
-        acme_lw::AcmeClient::init();
-        auto key = readFile(keyname);
-        acme_lw::AcmeClient acme{key};
-        list<std::string> certificateNames{};
-        for (const string &name: names) {
-            certificateNames.insert(certificateNames.end(), name);
-        }
-        acme_lw::Certificate certificate = acme.issueCertificate(certificateNames, callback);
-
-        generateCertificate_out(keyname);
-
-        return std::make_optional<acme_lw::Certificate>(certificate);
-    }
-
 
     string whoami() {
         struct passwd *pw;
@@ -189,25 +117,9 @@ public:
         return s;
     }
 
-    ~DevDsnEngine() {
-        json_free(a.json);
-        json_free(a.account);
-        json_free(a.dir);
-        json_free(a.order);
-        free(a.nonce);
-        free(a.kid);
-        free(a.headers);
-        free(a.body);
-        free(a.type);
-        free(a.keyprefix);
-        free(a.certprefix);
-        crypto_deinit();
-        acme_lw::AcmeClient::teardown();
-    }
 
 
 private:
-    acme_t a{};
     std::string d_base_domain;
     std::regex domain_regex1;
     std::unique_ptr<Storage> storage;
@@ -218,35 +130,4 @@ private:
     string d_db_user;
     string d_db_password;
     string d_db_extra_connection_parameters;
-
-    void generateCertificate_out(char *keyname = nullptr) const {
-        if (keyname) {
-            free(keyname);
-        }
-        json_free(a.json);
-        json_free(a.account);
-        json_free(a.dir);
-        json_free(a.order);
-        free(a.nonce);
-        free(a.kid);
-        free(a.headers);
-        free(a.body);
-        free(a.type);
-        free(a.keyprefix);
-        free(a.certprefix);
-        //if (a.key)
-        //    privkey_deinit(a.key);
-        //if (key)
-        //    privkey_deinit(key);
-        crypto_deinit();
-        //curl_global_cleanup();
-        /*
-        if (names) {
-            for (int i = 0; names[i]; i++)
-                free(names[i]);
-            free(names);
-        }
-        */
-        acme_lw::AcmeClient::teardown();
-    }
 };

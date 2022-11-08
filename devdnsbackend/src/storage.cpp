@@ -67,7 +67,7 @@ public:
             if (maxRetry == 0) {
                 throw;
             }
-            log_info("Storage: waiting for db connection ... retry -{} - {}", std::to_string(maxRetry), e.what());
+            log_info("Storage: waiting for db connection ... retry - {} - {}", std::to_string(maxRetry), e.what());
             sleep(1);
             waitConnection(connectionString, maxRetry - 1);
         }
@@ -129,9 +129,8 @@ private:
 
     void _prepare() {
         this->_conn->prepare(
-                "name",
-                "definition"
+                "all_records",
+                "select * from records"
         );
-        /* ... */
     }
 };

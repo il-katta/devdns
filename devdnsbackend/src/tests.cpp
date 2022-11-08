@@ -13,23 +13,6 @@ int main() {
         "",
         "devdns.sh"
     };
-    std::string email = "acme@devdns.sh";
-    std::string domain = "example.devdns.sh";
-    std::vector<string> names = {domain};
-    std::optional<acme_lw::Certificate> certificate = engine.generateCertificate(
-            email,
-            names,
-            [](
-                    const std::string &type,
-                    const std::string &domainName,
-                    const std::string &token,
-                    const std::string &keyAuthorization
-            ) {
-                return false;
-            },
-            "/tmp",
-            true
-    );
 
     std::string response;
     if (!engine.check_request("1.1.1.1.a.devdns.sh.", response)) {

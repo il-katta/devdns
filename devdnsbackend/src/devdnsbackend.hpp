@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <regex>
 
-#include "pdns/dnsbackend.hh"
 #include "pdns/namespaces.hh"
 #include "pdns/misc.hh"
 #include "fmt/core.h"

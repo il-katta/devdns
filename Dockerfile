@@ -19,7 +19,7 @@ RUN set -x && \
     make && \
     make DESTDIR=/output/ install && make install && \
     # powerdns build & install
-    git clone https://github.com/PowerDNS/pdns.git --branch auth-4.6.3 /usr/local/pdns && \
+    git clone https://github.com/PowerDNS/pdns.git --branch auth-4.7.2 /usr/local/pdns && \
     cd /usr/local/pdns && \
     autoreconf -vi && \
     CFLAGS="-march=native -O2 -pipe" \
@@ -46,13 +46,6 @@ RUN set -x && \
         --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
     make DESTDIR=/output/ install && make install &&\
-    # uacme
-    git clone https://git.loopback.it/andrea/uacme.git --branch lib /usr/local/uacme && \
-    cd /usr/local/uacme && \
-    autoreconf -vi && \
-    ./configure --prefix=/usr --disable-maintainer-mode --disable-docs && \
-    make -j$(nproc) && \
-    make DESTDIR=/output/ install && make install && \
     # devdnsbackend build & install
     cd /usr/local/devdnsbackend && \
     mkdir -p build && \
