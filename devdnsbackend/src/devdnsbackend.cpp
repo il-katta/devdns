@@ -27,44 +27,37 @@ DevDnsBackend::DevDnsBackend(
     log_info("{}@DevDnsBackend:{}", engine.whoami(), suffix);
     signal(SIGCHLD, SIG_IGN);
     setArgPrefix("devdns" + suffix);
-    soa_record = getArg("soa-record");
-    base_domain = getArg("domain");
-    keystore_directory = getArg("keystore-directory");
-
     d_answered = false;
     d_match = false;
 }
 
-DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix): gPgSQLBackend(mode, suffix), engine(getArg("dbname"),
-                                                                                                            getArg("host"),
-                                                                                                            getArg("port"),
-                                                                                                            getArg("user"),
-                                                                                                            getArg("password"),
-                                                                                                            getArg("extra-connection-parameters"),
-                                                                                                            getArg("domain")) {
+DevDnsBackend::DevDnsBackend(const string &mode, const string &suffix) : gPgSQLBackend(mode, suffix),
+                                                                         engine(getArg("dbname"),
+                                                                                getArg("host"),
+                                                                                getArg("port"),
+                                                                                getArg("user"),
+                                                                                getArg("password"),
+                                                                                getArg("extra-connection-parameters"),
+                                                                                getArg("domain")) {
     log_info("{}@DevDnsBackend:{}", engine.whoami(), suffix);
     signal(SIGCHLD, SIG_IGN);
     setArgPrefix("devdns" + suffix);
-    soa_record = getArg("soa-record");
-    base_domain = getArg("domain");
-    keystore_directory = getArg("keystore-directory");
 
     d_answered = false;
     d_match = false;
 }
 
-
-void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
+void DevDnsBackend::lookup_devdns(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
     d_qname = qname;
     d_qtype = qtype;
     d_answered = false;
     std::string d_sname = d_qname.empty() ? "" : d_qname.toString();
-    d_sremote = d_remote.has_value() ? d_remote->toString() : "";
     if (pkt_p) {
         d_remote = std::make_optional<ComboAddress>(pkt_p->getRemote());
     } else {
         d_remote.reset();
     }
+    d_sremote = d_remote.has_value() ? d_remote->toString() : "";
     dlog("lookup()");
 
     switch (d_qtype.getCode()) {
@@ -84,23 +77,31 @@ void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId,
             d_match = false;
             break;
     }
-    dlog("lookup() using gPgSQL backend");
+}
+
+void DevDnsBackend::lookup_sql(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
     gPgSQLBackend::lookup(qtype, qname, zoneId, pkt_p);
-    dlog("lookup() using gPgSQL backend end");
+}
+
+void DevDnsBackend::lookup(const QType &qtype, const DNSName &qname, int zoneId, DNSPacket *pkt_p) {
+    dlog("lookup() using gPgSQL backend");
+    lookup_sql(qtype, qname, zoneId, pkt_p);
+    dlog("lookup() using devdns backend");
+    lookup_devdns(qtype, qname, zoneId, pkt_p);
 }
 
 bool DevDnsBackend::get(DNSResourceRecord &r) {
     dlog("get()");
-
-    if (!d_match || d_qname.empty() || q_content.empty()) {
-        return get_sql(r);
-    } else {
-        return get_devdns(r);
+    if (get_devdns(r)) {
+        return true;
     }
+    return get_sql(r);
 }
 
 bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
     if (d_answered) return false;
+    if (d_qname.empty()) return false;
+    if (q_content.empty()) return false;
     r.disabled = false;
     r.qname = d_qname;
     r.qtype = d_qtype;
@@ -110,34 +111,25 @@ bool DevDnsBackend::get_devdns(DNSResourceRecord &r) {
     switch (d_qtype.getCode()) {
         case QType::A:
         case QType::ANY:
-            r.content = q_content;
+            if (q_content.compare("myip") == 0) {
+                r.content = d_sremote;
+                r.ttl = 0;
+            } else {
+                r.content = q_content;
+            }
             r.qtype = QType::A;
             dlog("get() return '{}'", r.content);
             d_answered = false;
             d_qtype = QType::TXT;
             return true;
-        case QType::SOA:
-            r.content = soa_record;
-            dlog("get() return '{}'", r.content);
-            d_answered = true;
-            return true;
-        case QType::TXT:
-            if (d_qname.empty()) {
-                d_answered = true;
-                r.content = "empty";
-                return true;
-            }
-
-            r.content = "hello there";
-            d_answered = true;
-            return true;
+        default:
+            return false;
     }
-    return false;
 }
 
 bool DevDnsBackend::get_sql(DNSResourceRecord &r) {
-    if (!d_match)
-        dlog("get() using gPgSQL backend [not match]");
+    //if (!d_match)
+    //    dlog("get() using gPgSQL backend [not match]");
     if (d_qname.empty())
         dlog("get() using gPgSQL backend [d_qname empty]");
     if (q_content.empty())
@@ -189,59 +181,6 @@ void DevDnsBackend::dlog(std::string str, T &&... args) {
     dlog(fmt::format(str, args...));
 }
 
-bool DevDnsBackend::getZoneFromDnsRecord(std::string domainName, DomainInfo &di) {
-    vector<DomainInfo> domains;
-    getAllDomains(&domains, false, false);
-    for (const auto &_di: domains) {
-        if (engine.str_ends_with(domainName, _di.zone.toString(".", false))) {
-            di = _di;
-            return true;
-        }
-    }
-    log(Logger::Error, fmt::format("zone not found for '{}'", domainName));
-    return false;
-}
-
-bool DevDnsBackend::generateCertificate_callback(const string &type, const string &domainName, const string &token,
-                                                 const string &keyAuthorization) {
-    if (type != "dns-01") return false;
-    DNSResourceRecord rr;
-    vector<DNSResourceRecord> newrrs;
-    DNSName zone("devdns.sh");
-    DNSName name = DNSName(fmt::format("_acme-challenge.{}", domainName));
-    DomainInfo di;
-    if (!getDomainInfo(zone, di)) {
-        log(Logger::Error, fmt::format("Zone '{}' does not exist", zone.toString()));
-        return false;
-    }
-    rr.auth = true;
-    rr.domain_id = di.id;
-    rr.qname = name;
-    DNSResourceRecord oldrr;
-    startTransaction(zone, -1);
-    lookup(rr.qtype, rr.qname, di.id, nullptr);
-    while (di.backend->get(oldrr))
-        newrrs.push_back(oldrr);
-    rr.ttl = 60;
-    lookup(QType(QType::ANY), rr.qname, di.id, nullptr);
-    std::string contentValue = "test"; // TODO
-    rr.content = DNSRecordContent::mastermake(rr.qtype.getCode(), QClass::IN, contentValue)->getZoneRepresentation(
-            true);
-    newrrs.push_back(rr);
-    if (replaceRRSet(di.id, name, rr.qtype, newrrs)) {
-        log(Logger::Error, fmt::format("failed to replace record"));
-        return false;
-    }
-    lookup(rr.qtype, name, di.id, nullptr);
-    while (di.backend->get(rr)) {
-        dlog("{} {} IN {} {}", rr.qname.toString(), rr.ttl, rr.qtype.toString(), rr.content);
-    }
-    di.backend->commitTransaction();
-    return true;
-}
-
-
-
 //
 // Magic class that is activated when the dynamic library is loaded
 //
@@ -255,17 +194,11 @@ public:
     void declareArguments(const string &suffix = "") override {
         log(Logger::Debug, "declareArguments " + suffix);
         gPgSQLFactory::declareArguments(suffix);
-        declare(suffix, "soa-record", "soa record",
-                "a.misconfigured.dns.server.invalid hostmaster.example.com 0 10800 3600 604800 3600");
         declare(suffix, "domain", "base domain ( Example: dev.example.com )", "");
-        declare(suffix, "keystore-directory", "directory for acme account keys", "/etc/powerdns/acme-keys");
     }
 
     DNSBackend *make(const string &suffix = "") override {
         log(Logger::Debug, "DevdnsFactory make " + suffix);
-        log(Logger::Debug, "DevdnsFactory make 2 " + suffix);
-
-        log(Logger::Debug, "DevdnsFactory engine " + suffix);
         auto pDevDnsBackend = new DevDnsBackend(d_mode, suffix);
         return pDevDnsBackend;
     }

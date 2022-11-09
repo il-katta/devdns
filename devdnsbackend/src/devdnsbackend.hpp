@@ -33,9 +33,6 @@ public:
 
 private:
     std::unique_ptr<Regex> d_regex;
-    string soa_record;
-    string base_domain;
-    string keystore_directory;
     DNSName d_qname;
     string d_sremote;
     string q_content;
@@ -51,16 +48,11 @@ private:
     template <typename... T>
     void dlog(std::string str, T&&... args);
 
+    void lookup_devdns(const QType &, const DNSName &qdomain, int zoneId, DNSPacket *p);
+
+    void lookup_sql(const QType &, const DNSName &qdomain, int zoneId, DNSPacket *p);
+
     bool get_devdns(DNSResourceRecord &r);
 
     bool get_sql(DNSResourceRecord &r);
-
-    bool generateCertificate_callback(
-            const std::string &type,
-            const std::string &domainName,
-            const std::string &token,
-            const std::string &keyAuthorization
-    );
-
-    bool getZoneFromDnsRecord(std::string domainName, DomainInfo &di);
 };

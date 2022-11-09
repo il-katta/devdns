@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(LIB_NAME "devdnsbackend")
 set(PDNS_TAG "auth-4.7.2")
-#set(PDNS_TAG "auth-4.6.3")
 set(DEPENDENCIES)
 set(PQXX_TAG "7.7.4")
 
@@ -43,6 +42,8 @@ if (NOT PQXX_FOUND)
 endif ()
 
 # OpenSSL
+
+#find_package(OpenSSL 1.0...<3.0 REQUIRED)
 find_package(OpenSSL REQUIRED)
 message("openssl " ${OPENSSL_VERSION} " " ${OPENSSL_INCLUDE_DIR} " " ${OPENSSL_LIBRARIES})
 # pdns headers
@@ -90,8 +91,7 @@ target_include_directories(${LIB_NAME} PRIVATE include)
 target_include_directories(${LIB_NAME} PRIVATE src)
 # openssl
 target_include_directories(${LIB_NAME} PRIVATE ${OPENSSL_INCLUDE_DIR})
-#target_link_libraries(${LIB_NAME} PRIVATE ${OPENSSL_LIBRARIES} -ldl)
-target_link_libraries(${LIB_NAME} PRIVATE -lssl -lcrypto -ldl)
+target_link_libraries(${LIB_NAME} PRIVATE ${OPENSSL_LIBRARIES})
 # fmt
 target_link_libraries(${LIB_NAME} PRIVATE ${FMT_LIBRARIES})
 # pq
