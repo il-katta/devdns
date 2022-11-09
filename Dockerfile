@@ -1,14 +1,12 @@
-FROM debian:latest as builder
-
-ADD devdnsbackend /usr/local/devdnsbackend
-
+FROM debian:11-slim as pdns-builder
+ARG PDNS_TAG
+ENV PDNS_TAG=${PDNS_TAG:-auth-4.7.2}
 RUN set -x && \
     apt-get -qq update && \
-    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv \
-        autoconf automake ragel bison flex \
-        git curl wget cmake \
-        libsqlite3-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
-        libgnutls28-dev && \
+    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv libsqlite3-dev sqlite3 \
+        libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
+        autoconf automake ragel bison flex cmake \
+        git curl wget && \
     apt-get clean all -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     mkdir -p /usr/src/libdecaf && \
     # libdecaf
@@ -19,46 +17,71 @@ RUN set -x && \
     make && \
     make DESTDIR=/output/ install && make install && \
     # powerdns build & install
-    git clone https://github.com/PowerDNS/pdns.git --branch auth-4.7.2 /usr/local/pdns && \
+    git clone https://github.com/PowerDNS/pdns.git --branch "$PDNS_TAG" /usr/local/pdns && \
     cd /usr/local/pdns && \
     autoreconf -vi && \
     CFLAGS="-march=native -O2 -pipe" \
     CPPFLAGS="${CFLAGS} -I/usr/include/decaf" \
     CXXFLAGS="${CXXFLAGS}" \
     ./configure \
-        --prefix=/usr \
-        --sysconfdir=/etc/powerdns \
-        --sbindir=/usr/bin \
-        --with-modules="" \
-        --with-dynmodules="gpgsql bind" \
-        --docdir=/usr/share/doc/powerdns \
-        --with-sqlite3 \
-        --with-libsodium \
-        --with-libdecaf \
-        --enable-tools \
-        --enable-ixfrdist \
-        --enable-dns-over-tls \
-        --disable-dependency-tracking \
-        --disable-silent-rules \
-        --enable-reproducible \
-        --enable-unit-tests \
-        --disable-systemd \
-        --with-service-user=pdns --with-service-group=pdns && \
+    --prefix=/usr \
+    --sysconfdir=/etc/powerdns \
+    --sbindir=/usr/bin \
+    --with-modules="" \
+    --with-dynmodules="gpgsql bind" \
+    --docdir=/usr/share/doc/powerdns \
+    --with-sqlite3 \
+    --with-libsodium \
+    --with-libdecaf \
+    --enable-tools \
+    --enable-ixfrdist \
+    --enable-dns-over-tls \
+    --disable-dependency-tracking \
+    --disable-silent-rules \
+    --enable-reproducible \
+    --enable-unit-tests \
+    --disable-systemd \
+    --with-service-user=pdns --with-service-group=pdns && \
     make -j$(nproc) && \
-    make DESTDIR=/output/ install && make install &&\
+    make DESTDIR=/output/ install && make install && \
+    apt-get -qq -y remove libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv libsqlite3-dev sqlite3 \
+        libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
+        autoconf automake ragel bison flex \
+        git curl wget cmake && \
+    apt-get clean all -y && apt-get autoclean -y
+
+FROM debian:11-slim as builder
+ARG PDNS_TAG
+ENV PDNS_TAG=${PDNS_TAG:-auth-4.7.2}
+
+COPY --from=pdns-builder /output/ /
+
+ADD devdnsbackend /usr/local/devdnsbackend
+
+RUN set -x && \
+    apt-get -qq update && \
+    apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv libsqlite3-dev sqlite3 \
+        libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
+        autoconf automake ragel bison flex \
+        git curl wget cmake && \
+    apt-get clean all -y && apt-get autoclean -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     # devdnsbackend build & install
     cd /usr/local/devdnsbackend && \
     mkdir -p build && \
     cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .. && \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DPDNS_TAG="$PDNS_TAG" .. && \
     make devdnsbackend && \
     make DESTDIR=/output/ install && \
-    apt-get -qq -y remove g++ libboost-all-dev libtool make pkg-config libssl-dev libluajit-5.1-dev python3-venv \
-        autoconf automake ragel bison flex git curl wget cmake libsqlite3-dev libpqxx-dev sqlite3 libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev && \
+    apt-get -qq -y remove libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv libsqlite3-dev sqlite3 \
+        libsodium-dev libyaml-cpp-dev libcurl4-openssl-dev libfmt-dev \
+        autoconf automake ragel bison flex \
+        git curl wget cmake && \
     apt-get clean all -y && apt-get autoclean -y
 
 
-FROM debian:latest
+FROM debian:11-slim
+
+COPY --from=pdns-builder /output/ /
 COPY --from=builder /output/ /
 
 RUN set -x && \
