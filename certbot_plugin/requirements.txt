@@ -1,0 +1,4 @@
+certbot>=2.1.0
+acme>=2.1.0
+pyOpenSSL==22.1.0
+requests

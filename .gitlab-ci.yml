@@ -1,2 +1,2 @@
 include:
-  - template: Docker.gitlab-ci.yml 
+  - template: Docker.gitlab-ci.yml

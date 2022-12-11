@@ -33,7 +33,7 @@ public:
         d_db_user = db_user;
         d_db_password = db_password;
         d_db_extra_connection_parameters = db_extra_connection_parameters;
-        std::string ip_regex = R"(((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4})";
+        std::string ip_regex = R"(((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4})"; // ((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)
         std::string st_regex = R"(((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61})";
         std::string s_regex1 = "^(" + st_regex + "\\.)?(" + ip_regex + ")(\\." + st_regex + "){2,3}\\.$";
         domain_regex1 = std::regex(s_regex1, std::regex_constants::ECMAScript | std::regex_constants::icase);

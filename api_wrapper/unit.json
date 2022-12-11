@@ -1,0 +1,28 @@
+{
+  "listeners": {
+    "*:80": {
+      "pass": "routes"
+    }
+  },
+  "applications": {
+    "api_wrapper": {
+      "type": "python 3.10",
+      "path": "/app",
+      "module": "api_wrapper",
+      "protocol": "asgi",
+      "callable": "app",
+      "processes": {
+        "max": 100,
+        "spare": 5,
+        "idle_timeout": 20
+      }
+    }
+  },
+  "routes": [
+    {
+      "action": {
+        "pass": "applications/api_wrapper"
+      }
+    }
+  ]
+}
