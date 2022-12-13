@@ -7,3 +7,5 @@ devdnsbackend/cmake-build*
 uacme/
 acme-lw/
 pdns/
+*.egg-info
+dist

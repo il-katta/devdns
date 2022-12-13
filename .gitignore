@@ -12,3 +12,5 @@ conf/pdns.sqlite3-shm
 conf/pdns.sqlite3-wal
 !devdnsbackend/include/uacme
 __pycache__
+*.egg-info
+dist
