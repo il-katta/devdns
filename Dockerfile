@@ -1,6 +1,6 @@
 FROM debian:11-slim as pdns-builder
 ARG PDNS_TAG
-ENV PDNS_TAG=${PDNS_TAG:-auth-4.7.2}
+ENV PDNS_TAG=${PDNS_TAG:-auth-4.7.4}
 RUN set -x && \
     apt-get -qq update && \
     apt-get install -qq -y g++ libboost-all-dev libtool make pkg-config libpq-dev libpqxx-dev libssl-dev libluajit-5.1-dev python3-venv libsqlite3-dev sqlite3 \
