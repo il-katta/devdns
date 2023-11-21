@@ -11,7 +11,6 @@ ADD . /app
 WORKDIR /app
 
 RUN set -x && \
-    python setup.py install && \
-    rm -rf /app
+    python setup.py install
 
 COPY unit.json /docker-entrypoint.d/config.json
